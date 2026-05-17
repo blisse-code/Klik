@@ -1,0 +1,6 @@
+{
+  "name": "AI Camera Pro",
+  "description": "A premium AI-powered camera app for real-time photo capture and transformation.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
