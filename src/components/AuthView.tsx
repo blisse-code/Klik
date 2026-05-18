@@ -44,35 +44,41 @@ export function AuthView({ onBackToLanding }: AuthViewProps = {}) {
         <button
           type="button"
           onClick={onBackToLanding}
-          className="absolute top-5 left-5 inline-flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-widest text-white/50 hover:text-white transition-colors"
+          className="absolute top-5 left-5 inline-flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-widest text-white/70 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded px-1 py-1"
         >
-          <ArrowLeft className="w-3 h-3" />
+          <ArrowLeft className="w-3 h-3" aria-hidden />
           Home
         </button>
       )}
       <div className="flex flex-col items-center mb-8">
         <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30 mb-4">
-          <Camera className="w-7 h-7" />
+          <Camera className="w-7 h-7" aria-hidden />
         </div>
         <h1 className="text-2xl font-bold tracking-tight">Klik</h1>
-        <p className="text-[11px] text-white/50 uppercase tracking-widest mt-1">
+        <p className="text-[11px] text-white/75 uppercase tracking-widest mt-1">
           AI camera, your style
         </p>
       </div>
 
-      <div className="flex bg-black/40 rounded-lg p-1 mb-6 border border-white/5">
+      <div
+        className="flex bg-black/60 rounded-lg p-1 mb-6 border border-white/10"
+        role="tablist"
+        aria-label="Authentication mode"
+      >
         {(['signin', 'signup'] as Mode[]).map((m) => (
           <button
             key={m}
             type="button"
+            role="tab"
+            aria-selected={mode === m}
             onClick={() => {
               setMode(m);
               setError(null);
               setMessage(null);
             }}
             className={cn(
-              'flex-1 py-2 text-[11px] font-bold uppercase tracking-wider rounded-md transition-colors',
-              mode === m ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white/80'
+              'flex-1 py-2 text-[11px] font-bold uppercase tracking-wider rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
+              mode === m ? 'bg-white/15 text-white' : 'text-white/75 hover:text-white'
             )}
           >
             {m === 'signin' ? 'Sign in' : 'Sign up'}
@@ -81,33 +87,44 @@ export function AuthView({ onBackToLanding }: AuthViewProps = {}) {
       </div>
 
       <form onSubmit={submit} className="space-y-3">
+        <label htmlFor="auth-email" className="sr-only">Email</label>
         <input
+          id="auth-email"
           type="email"
           required
           autoComplete="email"
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full px-3 py-3 bg-black/40 border border-white/10 rounded-lg text-sm placeholder-white/30 focus:outline-none focus:border-blue-500"
+          className="w-full px-3 py-3 bg-black/60 border border-white/15 rounded-lg text-sm placeholder-white/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:border-blue-400"
         />
+        <label htmlFor="auth-password" className="sr-only">Password</label>
         <input
+          id="auth-password"
           type="password"
           required
           minLength={6}
           autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-          placeholder="Password"
+          placeholder="Password (min 6 characters)"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full px-3 py-3 bg-black/40 border border-white/10 rounded-lg text-sm placeholder-white/30 focus:outline-none focus:border-blue-500"
+          className="w-full px-3 py-3 bg-black/60 border border-white/15 rounded-lg text-sm placeholder-white/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:border-blue-400"
         />
 
         {error && (
-          <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-md px-3 py-2">
+          <p
+            className="text-xs text-red-200 bg-red-500/20 border border-red-400/40 rounded-md px-3 py-2"
+            role="alert"
+          >
             {error}
           </p>
         )}
         {message && (
-          <p className="text-xs text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-md px-3 py-2">
+          <p
+            className="text-xs text-emerald-200 bg-emerald-500/20 border border-emerald-400/40 rounded-md px-3 py-2"
+            role="status"
+            aria-live="polite"
+          >
             {message}
           </p>
         )}
@@ -115,20 +132,19 @@ export function AuthView({ onBackToLanding }: AuthViewProps = {}) {
         <button
           type="submit"
           disabled={busy}
-          className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl font-bold text-xs tracking-wide flex items-center justify-center space-x-2 shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-transform disabled:opacity-50"
+          className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl font-bold text-xs tracking-wide flex items-center justify-center space-x-2 shadow-lg shadow-blue-500/30 active:scale-[0.98] transition-transform disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1A1A1C]"
         >
           {busy ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
+            <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
           ) : (
             <span>{mode === 'signin' ? 'SIGN IN' : 'CREATE ACCOUNT'}</span>
           )}
         </button>
       </form>
 
-      <p className="text-[10px] text-white/30 text-center mt-6 leading-relaxed">
-        After signing up you'll add your own Gemini API key in Settings.
-        <br />
-        Get one at <span className="text-white/50">aistudio.google.com/apikey</span>.
+      <p className="text-[11px] text-white/70 text-center mt-6 leading-relaxed">
+        Sign in to save your provider keys and renders. Once you're in, you can
+        use Basic mode (local WebGL filters) without adding any API keys.
       </p>
     </div>
   );

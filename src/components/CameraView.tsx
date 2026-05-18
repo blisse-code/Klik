@@ -131,74 +131,89 @@ export function CameraView({ onCapture }: CameraViewProps) {
     <div className="relative w-full h-full bg-[#1A1A1C] flex flex-col items-center justify-center overflow-hidden">
       {/* Live Camera View */}
       {error ? (
-        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-          <Camera className="w-16 h-16 text-white/20 mb-4" />
-          <p className="text-white/60 mb-6 font-mono text-[10px] tracking-widest uppercase">{error}</p>
+        <div
+          className="flex-1 flex flex-col items-center justify-center p-6 text-center"
+          role="alert"
+        >
+          <Camera className="w-16 h-16 text-white/55 mb-4" aria-hidden />
+          <p className="text-white/85 mb-6 font-mono text-[10px] tracking-widest uppercase">
+            {error}
+          </p>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-xs font-bold uppercase tracking-wider hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          >
+            Upload a photo instead
+          </button>
         </div>
       ) : (
-        <video 
+        <video
           ref={videoRef}
-          autoPlay 
-          playsInline 
-          muted 
+          autoPlay
+          playsInline
+          muted
+          aria-label="Live camera viewfinder"
           className={cn(
-            "absolute inset-0 w-full h-full object-cover",
-            facingMode === 'user' ? "scale-x-[-1]" : ""
+            'absolute inset-0 w-full h-full object-cover',
+            facingMode === 'user' ? 'scale-x-[-1]' : ''
           )}
         />
       )}
 
       {/* Grid Overlay for Composition */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="w-full h-1/3 border-b border-white/10" />
-        <div className="w-full h-1/3 border-b border-white/10" />
-        <div className="absolute top-0 bottom-0 left-1/3 w-1/3 border-l border-r border-white/10" />
+      <div className="absolute inset-0 pointer-events-none" aria-hidden>
+        <div className="w-full h-1/3 border-b border-white/15" />
+        <div className="w-full h-1/3 border-b border-white/15" />
+        <div className="absolute top-0 bottom-0 left-1/3 w-1/3 border-l border-r border-white/15" />
       </div>
 
       {/* Top Controls */}
-      <div className="absolute top-0 left-0 right-0 p-6 pt-12 flex justify-between items-center bg-gradient-to-b from-[#0A0A0B]/80 to-transparent z-10">
-        <div className="bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-md border border-white/10 flex items-center space-x-2">
-          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-          <span className="text-[10px] font-mono tracking-widest text-white/80 uppercase">PRO</span>
+      <div className="absolute top-0 left-0 right-0 p-6 pt-12 flex justify-between items-center bg-gradient-to-b from-[#0A0A0B]/85 to-transparent z-10">
+        <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-md border border-white/15 flex items-center space-x-2">
+          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse motion-reduce:animate-none" aria-hidden />
+          <span className="text-[10px] font-mono tracking-widest text-white/95 uppercase">Live</span>
         </div>
-        <button 
-          onClick={() => setFacingMode(m => m === 'user' ? 'environment' : 'user')}
-          className="w-9 h-9 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center border border-white/10 text-white hover:bg-white/10 transition-colors"
+        <button
+          onClick={() => setFacingMode((m) => (m === 'user' ? 'environment' : 'user'))}
+          className="w-9 h-9 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center border border-white/15 text-white hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 transition-colors"
+          aria-label={`Switch to ${facingMode === 'user' ? 'rear' : 'front'} camera`}
         >
-          <RefreshCw className="w-4 h-4" />
+          <RefreshCw className="w-4 h-4" aria-hidden />
         </button>
       </div>
 
       {/* Bottom Controls */}
-      <div className="absolute bottom-0 left-0 right-0 pb-12 pt-24 bg-gradient-to-t from-[#0A0A0B] via-[#0A0A0B]/80 to-transparent flex flex-col items-center justify-center z-10">
-        
+      <div className="absolute bottom-0 left-0 right-0 pb-12 pt-24 bg-gradient-to-t from-[#0A0A0B] via-[#0A0A0B]/85 to-transparent flex flex-col items-center justify-center z-10">
         <div className="flex items-center justify-around w-full max-w-sm px-8">
-          <button 
+          <button
             onClick={() => fileInputRef.current?.click()}
-            className="w-14 h-14 rounded-xl bg-white/5 backdrop-blur flex items-center justify-center border border-white/10 hover:bg-white/10 transition-colors"
+            className="w-14 h-14 rounded-xl bg-white/10 backdrop-blur flex items-center justify-center border border-white/15 hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 transition-colors"
+            aria-label="Upload an existing photo"
           >
-            <ImageIcon className="w-6 h-6 text-white/60" />
+            <ImageIcon className="w-6 h-6 text-white/85" aria-hidden />
           </button>
-          
-          <button 
+
+          <button
             onClick={handleCapture}
-            className="group relative w-20 h-20 rounded-full border-4 border-white/20 flex items-center justify-center transition-transform active:scale-95"
+            className="group relative w-20 h-20 rounded-full border-4 border-white/30 flex items-center justify-center transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+            aria-label="Capture photo"
           >
             <div className="w-16 h-16 rounded-full bg-white transition-transform group-active:scale-95" />
           </button>
-          
-          <div className="w-14 h-14" /> {/* Spacer to balance gallery button */}
+
+          <div className="w-14 h-14" aria-hidden />
         </div>
       </div>
 
       {/* Hidden elements */}
-      <canvas ref={canvasRef} className="hidden" />
-      <input 
-        type="file" 
-        accept="image/*" 
-        ref={fileInputRef} 
-        className="hidden" 
+      <canvas ref={canvasRef} className="hidden" aria-hidden />
+      <input
+        type="file"
+        accept="image/*"
+        ref={fileInputRef}
+        className="hidden"
         onChange={handleFileChange}
+        aria-label="Upload photo file"
       />
     </div>
   );
