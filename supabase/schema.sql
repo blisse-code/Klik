@@ -1,5 +1,6 @@
 -- Klik — Supabase schema
 -- Run this once in the Supabase SQL editor for your project.
+-- Safe to re-run: every statement is idempotent.
 
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
@@ -8,6 +9,14 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Explicit grants. Supabase normally adds these via default privileges,
+-- but if the table was created before those defaults were in place (or via
+-- a tool that bypassed them) the role gets "permission denied for table
+-- profiles" even though RLS policies exist. Grant once, then RLS gates rows.
+grant usage on schema public to anon, authenticated, service_role;
+grant select, insert, update, delete on public.profiles
+  to anon, authenticated, service_role;
 
 alter table public.profiles enable row level security;
 
@@ -44,6 +53,13 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+-- Backfill: anyone who signed up before the trigger existed has no
+-- profile row, which surfaces as "No Gemini API key on file" or an empty
+-- Settings form. Create rows for them now.
+insert into public.profiles (id)
+  select id from auth.users
+  on conflict (id) do nothing;
 
 -- Keep updated_at fresh.
 create or replace function public.touch_updated_at()
