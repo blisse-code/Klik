@@ -6,11 +6,20 @@ interface OutputViewProps {
   originalImage: string;
   generatedImage: string;
   prompt: string;
+  provider?: string;
   onBack: () => void;
   onRemix: () => void;
 }
 
-export function OutputView({ originalImage, generatedImage, prompt, onBack, onRemix }: OutputViewProps) {
+const PROVIDER_LABELS: Record<string, string> = {
+  gemini: 'Google Gemini',
+  openai: 'OpenAI gpt-image-1',
+  xai: 'xAI Grok',
+  fal: 'fal.ai Flux',
+  local: 'Local filters',
+};
+
+export function OutputView({ originalImage, generatedImage, prompt, provider, onBack, onRemix }: OutputViewProps) {
   const [sliderPosition, setSliderPosition] = useState(50);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -29,7 +38,7 @@ export function OutputView({ originalImage, generatedImage, prompt, onBack, onRe
     handleMove(e.clientX);
   };
 
-  const onPointerMove = (e: window.PointerEvent | React.PointerEvent) => {
+  const onPointerMove = (e: PointerEvent | React.PointerEvent) => {
     if (isDragging) {
       handleMove((e as any).clientX);
     }
@@ -149,6 +158,11 @@ export function OutputView({ originalImage, generatedImage, prompt, onBack, onRe
             <p className="text-[10px] text-white/40 mt-1 truncate">
               {prompt}
             </p>
+            {provider && (
+              <p className="text-[9px] text-blue-400/80 mt-1 font-mono uppercase tracking-wider">
+                rendered by {PROVIDER_LABELS[provider] ?? provider}
+              </p>
+            )}
           </div>
         </div>
 

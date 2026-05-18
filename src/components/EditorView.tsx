@@ -2,23 +2,19 @@ import React, { useState } from 'react';
 import { ArrowLeft, Wand2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
-import { DEFAULT_MODEL, MODELS, ModelKey } from '../lib/models';
-
-export interface ImageParams {
-  mode: string;
-  aesthetic: string;
-  colourGrade: string;
-  cameraType: string;
-  resolutionLabel: string;
-  filterTexture: string;
-  ambience: string;
-}
+import {
+  PROVIDERS,
+  type ImageParams,
+  type ProviderId,
+  type ProviderKeys,
+} from '../lib/providers';
 
 interface EditorViewProps {
   image: string;
-  defaultModel?: ModelKey;
+  providerOrder: ProviderId[];
+  providerKeys: ProviderKeys;
   onBack: () => void;
-  onGenerate: (params: ImageParams, model: ModelKey) => void;
+  onGenerate: (params: ImageParams) => void;
 }
 
 const PARAM_OPTIONS = {
@@ -34,16 +30,22 @@ const PARAM_OPTIONS = {
 type ParamKey = keyof ImageParams;
 
 const PARAM_LABELS: Record<ParamKey, string> = {
-  mode: "Style Mode",
-  aesthetic: "Aesthetic Direction",
-  colourGrade: "Color Grade",
-  cameraType: "Camera Simulation",
-  filterTexture: "Texture & Filter",
-  ambience: "Ambience",
-  resolutionLabel: "Resolution",
+  mode: 'Style Mode',
+  aesthetic: 'Aesthetic Direction',
+  colourGrade: 'Color Grade',
+  cameraType: 'Camera Simulation',
+  filterTexture: 'Texture & Filter',
+  ambience: 'Ambience',
+  resolutionLabel: 'Resolution',
 };
 
-export function EditorView({ image, defaultModel, onBack, onGenerate }: EditorViewProps) {
+export function EditorView({
+  image,
+  providerOrder,
+  providerKeys,
+  onBack,
+  onGenerate,
+}: EditorViewProps) {
   const [params, setParams] = useState<ImageParams>({
     mode: 'Photorealistic',
     aesthetic: 'Natural lifestyle',
@@ -53,20 +55,26 @@ export function EditorView({ image, defaultModel, onBack, onGenerate }: EditorVi
     filterTexture: 'Clean',
     ambience: 'Original scene',
   });
-
-  const [model, setModel] = useState<ModelKey>(defaultModel ?? DEFAULT_MODEL);
   const [activeTab, setActiveTab] = useState<ParamKey>('mode');
 
   const updateParam = (key: ParamKey, value: string) => {
-    setParams(prev => ({ ...prev, [key]: value }));
+    setParams((prev) => ({ ...prev, [key]: value }));
   };
+
+  // Trim the chain shown in the UI to providers that are actually usable
+  // for this generation: have a key, or are 'local'.
+  const activeChain = providerOrder.filter((id) => {
+    const meta = PROVIDERS[id];
+    if (!meta) return false;
+    if (!meta.needsKey) return true;
+    return (providerKeys[id]?.length ?? 0) > 0;
+  });
+  const firstProvider = activeChain[0] ? PROVIDERS[activeChain[0]] : null;
 
   return (
     <div className="flex flex-col w-full h-full bg-[#1A1A1C] text-white overflow-hidden">
-      
-      {/* Top Bar */}
       <div className="absolute top-0 left-0 right-0 p-5 flex justify-between items-center z-20 bg-[#0D0D0E]/90 border-b border-white/5 backdrop-blur-sm">
-        <button 
+        <button
           onClick={onBack}
           className="w-9 h-9 rounded-full bg-black/40 flex items-center justify-center border border-white/10 hover:bg-white/10 transition-colors"
         >
@@ -79,7 +87,6 @@ export function EditorView({ image, defaultModel, onBack, onGenerate }: EditorVi
         <div className="w-9" />
       </div>
 
-      {/* Main Preview */}
       <div className="flex-1 relative flex items-center justify-center bg-gradient-to-tr from-slate-900 via-indigo-950 to-slate-900 overflow-hidden p-4 mt-16 pb-64">
         <motion.img
           initial={{ opacity: 0, scale: 0.95 }}
@@ -90,18 +97,17 @@ export function EditorView({ image, defaultModel, onBack, onGenerate }: EditorVi
         />
       </div>
 
-      {/* Controls Sheet */}
       <div className="absolute bottom-0 left-0 right-0 bg-[#0D0D0E] border-t border-white/10 rounded-t-2xl flex flex-col max-h-[55vh] shadow-[0_-10px_40px_rgba(0,0,0,0.5)] z-20">
-        
-        {/* Navigation Tabs */}
         <div className="flex overflow-x-auto hide-scrollbar px-5 pt-4 pb-0 space-x-6 border-b border-white/5">
           {(Object.keys(PARAM_LABELS) as ParamKey[]).map((key) => (
             <button
               key={key}
               onClick={() => setActiveTab(key)}
               className={cn(
-                "whitespace-nowrap text-[10px] font-bold uppercase tracking-wider transition-colors duration-200 py-3",
-                activeTab === key ? "text-blue-400 border-b-2 border-blue-500" : "text-white/40 hover:text-white/70 border-b-2 border-transparent"
+                'whitespace-nowrap text-[10px] font-bold uppercase tracking-wider transition-colors duration-200 py-3',
+                activeTab === key
+                  ? 'text-blue-400 border-b-2 border-blue-500'
+                  : 'text-white/40 hover:text-white/70 border-b-2 border-transparent'
               )}
             >
               {PARAM_LABELS[key]}
@@ -109,9 +115,8 @@ export function EditorView({ image, defaultModel, onBack, onGenerate }: EditorVi
           ))}
         </div>
 
-        {/* Dynamic Options for active tab */}
         <div className="px-5 py-4 flex-1 overflow-y-auto">
-           <AnimatePresence mode="popLayout">
+          <AnimatePresence mode="popLayout">
             <motion.div
               key={activeTab}
               initial={{ opacity: 0, x: 10 }}
@@ -125,10 +130,10 @@ export function EditorView({ image, defaultModel, onBack, onGenerate }: EditorVi
                   key={option}
                   onClick={() => updateParam(activeTab, option)}
                   className={cn(
-                    "px-3 py-1.5 rounded text-[11px] font-semibold transition-all duration-200",
-                    params[activeTab] === option 
-                      ? "bg-blue-600 border border-blue-500 text-white" 
-                      : "bg-white/5 text-white/70 border border-transparent hover:bg-white/10"
+                    'px-3 py-1.5 rounded text-[11px] font-semibold transition-all duration-200',
+                    params[activeTab] === option
+                      ? 'bg-blue-600 border border-blue-500 text-white'
+                      : 'bg-white/5 text-white/70 border border-transparent hover:bg-white/10'
                   )}
                 >
                   {option}
@@ -138,37 +143,55 @@ export function EditorView({ image, defaultModel, onBack, onGenerate }: EditorVi
           </AnimatePresence>
         </div>
 
-        {/* Generate Button Container */}
         <div className="p-5 bg-black/40 border-t border-white/10 space-y-4 pb-safe">
           <div className="bg-black p-3 rounded-md border border-white/5">
-            <div className="text-[9px] text-blue-400 uppercase font-bold mb-1 tracking-tighter">Generated Logic Prompt</div>
+            <div className="text-[9px] text-blue-400 uppercase font-bold mb-1 tracking-tighter">
+              Generated Logic Prompt
+            </div>
             <p className="text-[10px] text-white/50 leading-relaxed italic truncate">
-              {params.mode} • {params.aesthetic} • {params.resolutionLabel} • {params.ambience}
+              {params.mode} • {params.aesthetic} • {params.resolutionLabel} •{' '}
+              {params.ambience}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <label className="text-[9px] uppercase tracking-widest text-white/40 shrink-0">Model</label>
-            <select
-              value={model}
-              onChange={(e) => setModel(e.target.value as ModelKey)}
-              className="flex-1 bg-black/60 border border-white/10 rounded-md px-2 py-1.5 text-[11px] text-white/90 focus:outline-none focus:border-blue-500"
-            >
-              {(Object.keys(MODELS) as ModelKey[]).map((k) => (
-                <option key={k} value={k}>
-                  {MODELS[k].label}
-                </option>
-              ))}
-            </select>
-          </div>
+
+          {activeChain.length > 0 && (
+            <div className="bg-black/60 p-2.5 rounded-md border border-white/5">
+              <div className="text-[9px] text-white/40 uppercase tracking-widest mb-1">
+                Provider chain
+              </div>
+              <div className="flex flex-wrap gap-1 items-center">
+                {activeChain.map((id, i) => (
+                  <React.Fragment key={id}>
+                    {i > 0 && <span className="text-white/30 text-[9px]">→</span>}
+                    <span
+                      className={cn(
+                        'text-[9px] font-mono px-1.5 py-0.5 rounded border',
+                        i === 0
+                          ? 'text-blue-300 border-blue-500/40 bg-blue-500/10'
+                          : 'text-white/50 border-white/10 bg-white/5'
+                      )}
+                    >
+                      {PROVIDERS[id]?.label ?? id}
+                    </span>
+                  </React.Fragment>
+                ))}
+              </div>
+              {firstProvider && (
+                <p className="text-[9px] text-white/30 mt-1">
+                  Will try {firstProvider.label} first; falls through on failure.
+                </p>
+              )}
+            </div>
+          )}
+
           <button
-            onClick={() => onGenerate(params, model)}
+            onClick={() => onGenerate(params)}
             className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl font-bold text-xs tracking-wide flex items-center justify-center space-x-2 shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-transform"
           >
             <Wand2 className="w-4 h-4" />
             <span>EXECUTE GENERATION</span>
           </button>
         </div>
-
       </div>
     </div>
   );
