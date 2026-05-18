@@ -139,7 +139,19 @@ export function SettingsView({ userId, email, onBack, onSaved }: SettingsViewPro
                         : 'bg-black/40 border-white/10 hover:border-white/20'
                     )}
                   >
-                    <div className="text-sm font-semibold">{MODELS[k].label}</div>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-sm font-semibold">{MODELS[k].label}</div>
+                      <span
+                        className={cn(
+                          'text-[8px] uppercase tracking-widest px-1.5 py-0.5 rounded-full border',
+                          MODELS[k].tier === 'free'
+                            ? 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10'
+                            : 'text-amber-300 border-amber-500/40 bg-amber-500/10'
+                        )}
+                      >
+                        {MODELS[k].tier === 'free' ? 'Free' : 'Paid'}
+                      </span>
+                    </div>
                     <div className="text-[10px] text-white/50 mt-0.5">
                       {MODELS[k].description}
                     </div>
