@@ -4,16 +4,47 @@
 
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
-  gemini_api_key text,
-  preferred_model text default 'nano-banana-2',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
--- Explicit grants. Supabase normally adds these via default privileges,
--- but if the table was created before those defaults were in place (or via
--- a tool that bypassed them) the role gets "permission denied for table
--- profiles" even though RLS policies exist. Grant once, then RLS gates rows.
+-- Provider chain: an ordered list of provider ids the chain executor walks
+-- top-to-bottom on each generation. 'local' is the always-available
+-- client-side WebGL filter fallback and lives at the end of the chain.
+alter table public.profiles
+  add column if not exists provider_keys jsonb not null default '{}'::jsonb;
+alter table public.profiles
+  add column if not exists provider_order jsonb not null
+  default '["gemini","openai","xai","fal","local"]'::jsonb;
+
+-- Migrate older single-key columns into the new structure if they still
+-- exist from a previous schema, then drop them.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'profiles'
+      and column_name = 'gemini_api_key'
+  ) then
+    update public.profiles
+      set provider_keys =
+        coalesce(provider_keys, '{}'::jsonb)
+        || jsonb_build_object('gemini', gemini_api_key)
+      where gemini_api_key is not null
+        and not (provider_keys ? 'gemini');
+    alter table public.profiles drop column gemini_api_key;
+  end if;
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'profiles'
+      and column_name = 'preferred_model'
+  ) then
+    alter table public.profiles drop column preferred_model;
+  end if;
+end $$;
+
 grant usage on schema public to anon, authenticated, service_role;
 grant select, insert, update, delete on public.profiles
   to anon, authenticated, service_role;
@@ -36,7 +67,6 @@ create policy "profiles_self_update"
   using (auth.uid() = id)
   with check (auth.uid() = id);
 
--- Auto-create a profile row on signup so we always have one to write to.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -54,14 +84,10 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
--- Backfill: anyone who signed up before the trigger existed has no
--- profile row, which surfaces as "No Gemini API key on file" or an empty
--- Settings form. Create rows for them now.
 insert into public.profiles (id)
   select id from auth.users
   on conflict (id) do nothing;
 
--- Keep updated_at fresh.
 create or replace function public.touch_updated_at()
 returns trigger
 language plpgsql

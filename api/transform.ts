@@ -1,17 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { GoogleGenAI } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
+import { ADAPTERS, ProviderError, type ProviderId } from './providers.js';
 
-// Inlined from src/lib/models — Vercel bundles /api separately, so cross-imports
-// outside the api directory fail with ERR_MODULE_NOT_FOUND at runtime.
-const MODEL_IDS: Record<string, string> = {
-  'nano-banana-free': 'gemini-2.5-flash-image-preview',
-  'nano-banana-2': 'gemini-3-pro-image-preview',
-  'gemini-3.1-pro': 'gemini-3-pro-preview',
-};
-const DEFAULT_MODEL_KEY = 'nano-banana-free';
-function resolveModelId(key: string | undefined): string {
-  return MODEL_IDS[key ?? DEFAULT_MODEL_KEY] ?? MODEL_IDS[DEFAULT_MODEL_KEY];
+const SERVER_PROVIDER_IDS: ProviderId[] = ['gemini', 'openai', 'xai', 'fal'];
+function isServerProvider(id: string): id is ProviderId {
+  return (SERVER_PROVIDER_IDS as string[]).includes(id);
 }
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
@@ -25,11 +18,13 @@ const supabaseAdmin =
     : null;
 
 export const config = {
-  api: {
-    bodyParser: { sizeLimit: '50mb' },
-  },
+  api: { bodyParser: { sizeLimit: '50mb' } },
   maxDuration: 60,
 };
+
+function buildPromptFromParams(p: any): string {
+  return `Transform the uploaded photo into a ${p?.mode || 'photorealistic'} image with a ${p?.aesthetic || 'natural'} look. Apply ${p?.colourGrade || 'natural'} colour grading, simulate a ${p?.cameraType || 'natural'} camera, add ${p?.filterTexture || 'clean'} texture, and change the ambience to ${p?.ambience || 'original'}. Preserve the original subject identity, pose, composition, clothing structure, facial details, object placement, and image quality. Maintain high sharpness, natural lighting coherence, realistic depth, and clean detail. Avoid artifacts, distortion, extra limbs, warped facial features, unreadable text, or excessive stylization unless explicitly selected.`;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -38,16 +33,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     if (!supabaseAdmin) {
-      return res
-        .status(500)
-        .json({ error: 'Server is not configured for Supabase.' });
+      return res.status(500).json({ error: 'Server is not configured for Supabase.' });
     }
 
     const authHeader = (req.headers.authorization as string | undefined) ?? '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-    if (!token) {
-      return res.status(401).json({ error: 'Missing auth token. Please sign in.' });
-    }
+    if (!token) return res.status(401).json({ error: 'Missing auth token. Please sign in.' });
 
     const { data: userData, error: userErr } = await supabaseAdmin.auth.getUser(token);
     if (userErr || !userData.user) {
@@ -57,29 +48,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { data: profile, error: profileErr } = await supabaseAdmin
       .from('profiles')
-      .select('gemini_api_key, preferred_model')
+      .select('provider_keys, provider_order')
       .eq('id', userId)
       .maybeSingle();
     if (profileErr) {
       return res.status(500).json({ error: 'Could not load your profile.' });
     }
-    const apiKey = profile?.gemini_api_key;
-    if (!apiKey) {
-      return res
-        .status(400)
-        .json({ error: 'No Gemini API key on file. Add one in Settings.' });
-    }
 
-    const { imageParams, base64ImageContext, model } = req.body ?? {};
-    const {
-      mode,
-      aesthetic,
-      colourGrade,
-      cameraType,
-      filterTexture,
-      ambience,
-    } = imageParams ?? {};
+    const providerKeys = (profile?.provider_keys ?? {}) as Record<string, string>;
+    const providerOrder = (profile?.provider_order ?? []) as string[];
 
+    const { imageParams, base64ImageContext } = req.body ?? {};
     const match =
       typeof base64ImageContext === 'string'
         ? base64ImageContext.match(/^data:(image\/[a-zA-Z]+);base64,(.+)$/)
@@ -88,48 +67,52 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Invalid base64 image format.' });
     }
     const mimeType = match[1];
-    const base64Data = match[2];
+    const imageBase64 = match[2];
+    const prompt = buildPromptFromParams(imageParams);
 
-    const modelId = resolveModelId(model ?? profile?.preferred_model ?? undefined);
-
-    const ai = new GoogleGenAI({ apiKey });
-
-    const fullPrompt = `Transform the uploaded photo into a ${mode || 'photorealistic'} image with a ${aesthetic || 'natural'} look. Apply ${colourGrade || 'natural'} colour grading, simulate a ${cameraType || 'natural'} camera, add ${filterTexture || 'clean'} texture, and change the ambience to ${ambience || 'original'}. Preserve the original subject identity, pose, composition, clothing structure, facial details, object placement, and image quality. Maintain high sharpness, natural lighting coherence, realistic depth, and clean detail. Avoid artifacts, distortion, extra limbs, warped facial features, unreadable text, or excessive stylization unless explicitly selected.`;
-
-    const response = await ai.models.generateContent({
-      model: modelId,
-      contents: {
-        parts: [
-          { inlineData: { data: base64Data, mimeType } },
-          { text: fullPrompt },
-        ],
-      },
-    });
-
-    let generatedImageUrl: string | null = null;
-    if (response.candidates && response.candidates[0]?.content?.parts) {
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) {
-          generatedImageUrl = `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
-          break;
+    // Walk the chain. Skip non-server providers (e.g. 'local') and any
+    // provider missing a key. First adapter that succeeds wins.
+    const attempts: Array<{ id: string; ok: boolean; error?: string }> = [];
+    for (const id of providerOrder) {
+      if (!isServerProvider(id)) continue;
+      const apiKey = providerKeys[id];
+      if (!apiKey) {
+        attempts.push({ id, ok: false, error: 'no key configured' });
+        continue;
+      }
+      try {
+        const adapter = ADAPTERS[id];
+        const out = await adapter({ imageBase64, mimeType, prompt, apiKey });
+        attempts.push({ id, ok: true });
+        return res.json({
+          imageUrl: `data:${out.mimeType};base64,${out.imageBase64}`,
+          prompt,
+          provider: id,
+          attempts,
+        });
+      } catch (err: any) {
+        const msg = err?.message || String(err);
+        attempts.push({ id, ok: false, error: msg });
+        if (err instanceof ProviderError && !err.retryable) {
+          // Bad-request style error — all providers would fail. Stop now.
+          return res.status(err.status >= 400 && err.status < 600 ? err.status : 500).json({
+            error: msg,
+            attempts,
+          });
         }
       }
     }
 
-    if (generatedImageUrl) {
-      return res.json({
-        imageUrl: generatedImageUrl,
-        prompt: fullPrompt,
-        model: modelId,
-      });
-    }
-
-    console.error('No image returned from Gemini', response);
-    return res.status(500).json({ error: 'No image received from AI model.' });
+    // No server provider succeeded. Tell the client so it can fall back to
+    // the local WebGL filter pipeline if 'local' is in the chain.
+    const hasLocal = providerOrder.includes('local');
+    return res.status(hasLocal ? 200 : 502).json({
+      error: 'No AI provider succeeded.',
+      shouldFallbackLocal: hasLocal,
+      attempts,
+    });
   } catch (error: any) {
-    console.error('Error transforming image:', error);
-    return res
-      .status(500)
-      .json({ error: error?.message || 'Failed to transform image' });
+    console.error('Chain executor error:', error);
+    return res.status(500).json({ error: error?.message || 'Failed to transform image' });
   }
 }

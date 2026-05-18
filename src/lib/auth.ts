@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+import type { ProviderId, ProviderKeys } from './providers';
+import { DEFAULT_PROVIDER_ORDER } from './providers';
 
 export function useSession() {
   const [session, setSession] = useState<Session | null>(null);
@@ -30,23 +32,29 @@ export function useSession() {
 
 export interface Profile {
   id: string;
-  gemini_api_key: string | null;
-  preferred_model: string | null;
+  provider_keys: ProviderKeys;
+  provider_order: ProviderId[];
 }
 
 export async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, gemini_api_key, preferred_model')
+    .select('id, provider_keys, provider_order')
     .eq('id', userId)
     .maybeSingle();
   if (error) throw error;
-  return data;
+  if (!data) return null;
+  return {
+    id: data.id,
+    provider_keys: (data.provider_keys ?? {}) as ProviderKeys,
+    provider_order:
+      (data.provider_order as ProviderId[] | null) ?? DEFAULT_PROVIDER_ORDER,
+  };
 }
 
 export async function upsertProfile(
   userId: string,
-  patch: { gemini_api_key?: string | null; preferred_model?: string | null }
+  patch: { provider_keys?: ProviderKeys; provider_order?: ProviderId[] }
 ) {
   const { error } = await supabase
     .from('profiles')
