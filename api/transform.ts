@@ -5,10 +5,11 @@ import { createClient } from '@supabase/supabase-js';
 // Inlined from src/lib/models — Vercel bundles /api separately, so cross-imports
 // outside the api directory fail with ERR_MODULE_NOT_FOUND at runtime.
 const MODEL_IDS: Record<string, string> = {
+  'nano-banana-free': 'gemini-2.5-flash-image-preview',
   'nano-banana-2': 'gemini-3-pro-image-preview',
   'gemini-3.1-pro': 'gemini-3-pro-preview',
 };
-const DEFAULT_MODEL_KEY = 'nano-banana-2';
+const DEFAULT_MODEL_KEY = 'nano-banana-free';
 function resolveModelId(key: string | undefined): string {
   return MODEL_IDS[key ?? DEFAULT_MODEL_KEY] ?? MODEL_IDS[DEFAULT_MODEL_KEY];
 }
