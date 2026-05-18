@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useLocation } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { AnimatePresence } from 'motion/react';
-import { Loader2, Settings as SettingsIcon } from 'lucide-react';
+import { Home, Loader2, Settings as SettingsIcon } from 'lucide-react';
 import { CameraView } from './CameraView';
 import { EditorView, ImageParams } from './EditorView';
 import { OutputView } from './OutputView';
@@ -111,6 +111,13 @@ export function AppShell() {
         {!loading && session && view === 'camera' && (
           <>
             <CameraView onCapture={handleCapture} />
+            <Link
+              href="/"
+              className="absolute top-5 left-5 z-30 w-9 h-9 rounded-full bg-black/50 border border-white/10 flex items-center justify-center backdrop-blur-sm hover:bg-white/10 transition-colors"
+              aria-label="Back to landing page"
+            >
+              <Home className="w-4 h-4" />
+            </Link>
             <button
               onClick={() => setView('settings')}
               className="absolute top-5 right-5 z-30 w-9 h-9 rounded-full bg-black/50 border border-white/10 flex items-center justify-center backdrop-blur-sm hover:bg-white/10 transition-colors"
