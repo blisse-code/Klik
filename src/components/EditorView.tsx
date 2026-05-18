@@ -80,24 +80,13 @@ export function EditorView({ image, defaultModel, onBack, onGenerate }: EditorVi
       </div>
 
       {/* Main Preview */}
-      <div className="flex-1 relative flex items-center justify-center bg-gradient-to-tr from-slate-900 via-indigo-950 to-slate-900 overflow-hidden p-6 mt-16 pb-64">
-        <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none opacity-20">
-          <div className="border-r border-b border-white/20"></div>
-          <div className="border-r border-b border-white/20"></div>
-          <div className="border-b border-white/20"></div>
-          <div className="border-r border-b border-white/20"></div>
-          <div className="border-r border-b border-white/20"></div>
-          <div className="border-b border-white/20"></div>
-          <div className="border-r border-white/20"></div>
-          <div className="border-r border-white/20"></div>
-          <div></div>
-        </div>
-        <motion.img 
+      <div className="flex-1 relative flex items-center justify-center bg-gradient-to-tr from-slate-900 via-indigo-950 to-slate-900 overflow-hidden p-4 mt-16 pb-64">
+        <motion.img
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          src={image} 
-          alt="Source" 
-          className="w-full h-full object-contain max-h-[45vh] rounded-xl border border-white/10 shadow-2xl z-10"
+          src={image}
+          alt="Source"
+          className="max-w-full max-h-full object-contain rounded-xl border border-white/10 shadow-2xl z-10"
         />
       </div>
 

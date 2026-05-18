@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Coffee, Eye, EyeOff, Loader2, LogOut, Save } from 'lucide-react';
+import { Link } from 'wouter';
+import { ArrowLeft, Coffee, Eye, EyeOff, Home, Loader2, LogOut, Save } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { fetchProfile, upsertProfile } from '../lib/auth';
 import { DEFAULT_MODEL, MODELS, ModelKey } from '../lib/models';
@@ -72,7 +73,13 @@ export function SettingsView({ userId, email, onBack, onSaved }: SettingsViewPro
         <span className="text-[10px] uppercase font-bold tracking-widest text-white/90">
           Settings
         </span>
-        <div className="w-9" />
+        <Link
+          href="/"
+          className="w-9 h-9 rounded-full bg-black/40 flex items-center justify-center border border-white/10 hover:bg-white/10 transition-colors"
+          aria-label="Back to landing page"
+        >
+          <Home className="w-4 h-4" />
+        </Link>
       </div>
 
       <div className="flex-1 overflow-y-auto p-5 space-y-6">
