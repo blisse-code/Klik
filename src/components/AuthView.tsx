@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
-import { Camera, Loader2 } from 'lucide-react';
+import { ArrowLeft, Camera, Loader2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 
 type Mode = 'signin' | 'signup';
 
-export function AuthView() {
+interface AuthViewProps {
+  onBackToLanding?: () => void;
+}
+
+export function AuthView({ onBackToLanding }: AuthViewProps = {}) {
   const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -35,7 +39,17 @@ export function AuthView() {
   };
 
   return (
-    <div className="flex flex-col w-full h-full bg-[#1A1A1C] text-white p-6 justify-center">
+    <div className="flex flex-col w-full h-full bg-[#1A1A1C] text-white p-6 justify-center relative">
+      {onBackToLanding && (
+        <button
+          type="button"
+          onClick={onBackToLanding}
+          className="absolute top-5 left-5 inline-flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-widest text-white/50 hover:text-white transition-colors"
+        >
+          <ArrowLeft className="w-3 h-3" />
+          Home
+        </button>
+      )}
       <div className="flex flex-col items-center mb-8">
         <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30 mb-4">
           <Camera className="w-7 h-7" />
