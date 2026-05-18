@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Wand2, SlidersHorizontal, ChevronRight, Check } from 'lucide-react';
+import { ArrowLeft, Wand2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
+import { DEFAULT_MODEL, MODELS, ModelKey } from '../lib/models';
 
 export interface ImageParams {
   mode: string;
@@ -15,8 +16,9 @@ export interface ImageParams {
 
 interface EditorViewProps {
   image: string;
+  defaultModel?: ModelKey;
   onBack: () => void;
-  onGenerate: (params: ImageParams) => void;
+  onGenerate: (params: ImageParams, model: ModelKey) => void;
 }
 
 const PARAM_OPTIONS = {
@@ -41,7 +43,7 @@ const PARAM_LABELS: Record<ParamKey, string> = {
   resolutionLabel: "Resolution",
 };
 
-export function EditorView({ image, onBack, onGenerate }: EditorViewProps) {
+export function EditorView({ image, defaultModel, onBack, onGenerate }: EditorViewProps) {
   const [params, setParams] = useState<ImageParams>({
     mode: 'Photorealistic',
     aesthetic: 'Natural lifestyle',
@@ -52,6 +54,7 @@ export function EditorView({ image, onBack, onGenerate }: EditorViewProps) {
     ambience: 'Original scene',
   });
 
+  const [model, setModel] = useState<ModelKey>(defaultModel ?? DEFAULT_MODEL);
   const [activeTab, setActiveTab] = useState<ParamKey>('mode');
 
   const updateParam = (key: ParamKey, value: string) => {
@@ -154,8 +157,22 @@ export function EditorView({ image, onBack, onGenerate }: EditorViewProps) {
               {params.mode} • {params.aesthetic} • {params.resolutionLabel} • {params.ambience}
             </p>
           </div>
-          <button 
-            onClick={() => onGenerate(params)}
+          <div className="flex items-center gap-2">
+            <label className="text-[9px] uppercase tracking-widest text-white/40 shrink-0">Model</label>
+            <select
+              value={model}
+              onChange={(e) => setModel(e.target.value as ModelKey)}
+              className="flex-1 bg-black/60 border border-white/10 rounded-md px-2 py-1.5 text-[11px] text-white/90 focus:outline-none focus:border-blue-500"
+            >
+              {(Object.keys(MODELS) as ModelKey[]).map((k) => (
+                <option key={k} value={k}>
+                  {MODELS[k].label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            onClick={() => onGenerate(params, model)}
             className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl font-bold text-xs tracking-wide flex items-center justify-center space-x-2 shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-transform"
           >
             <Wand2 className="w-4 h-4" />
