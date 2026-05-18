@@ -52,19 +52,36 @@ export function CameraView({ onCapture }: CameraViewProps) {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      
-      // Calculate crop to fill assuming square or same aspect
-      // For simplicity, just capture the video dimensions as drawn
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+
+      // Match what the viewfinder shows: video is rendered with object-cover,
+      // so the displayed area is the centered crop of the source frame that
+      // fits the container aspect ratio. We capture only that visible region.
+      const rect = video.getBoundingClientRect();
+      const containerAR = rect.width / rect.height;
+      const sourceAR = video.videoWidth / video.videoHeight;
+
+      let sx = 0;
+      let sy = 0;
+      let sw = video.videoWidth;
+      let sh = video.videoHeight;
+
+      if (sourceAR > containerAR) {
+        sw = video.videoHeight * containerAR;
+        sx = (video.videoWidth - sw) / 2;
+      } else if (sourceAR < containerAR) {
+        sh = video.videoWidth / containerAR;
+        sy = (video.videoHeight - sh) / 2;
+      }
+
+      canvas.width = Math.round(sw);
+      canvas.height = Math.round(sh);
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        // Handle mirroring if front camera
         if (facingMode === 'user') {
           ctx.translate(canvas.width, 0);
           ctx.scale(-1, 1);
         }
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
         const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
         onCapture(dataUrl);
       }

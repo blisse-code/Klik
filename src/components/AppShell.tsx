@@ -83,7 +83,7 @@ export function AppShell() {
 
   return (
     <div className="w-full h-[100dvh] bg-[#0A0A0B] text-white relative flex justify-center items-center">
-      <div className="w-full max-w-md md:max-w-lg h-full relative overflow-hidden bg-[#1A1A1C] shadow-2xl border-x border-white/5">
+      <div className="w-full max-w-md h-full relative overflow-hidden bg-[#1A1A1C] shadow-2xl border-x border-white/5">
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center">
             <Loader2 className="w-6 h-6 animate-spin text-white/40" />
