@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Eye, EyeOff, Loader2, LogOut, Save } from 'lucide-react';
+import { ArrowLeft, Coffee, Eye, EyeOff, Loader2, LogOut, Save } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { fetchProfile, upsertProfile } from '../lib/auth';
 import { DEFAULT_MODEL, MODELS, ModelKey } from '../lib/models';
@@ -171,6 +171,16 @@ export function SettingsView({ userId, email, onBack, onSaved }: SettingsViewPro
             </button>
           </form>
         )}
+
+        <a
+          href="https://buymeacoffee.com/blisse.code"
+          target="_blank"
+          rel="noreferrer"
+          className="w-full py-3 bg-gradient-to-r from-amber-500/15 to-yellow-500/15 border border-amber-500/30 rounded-xl text-xs font-bold tracking-wide flex items-center justify-center space-x-2 hover:from-amber-500/25 hover:to-yellow-500/25 text-amber-200 transition-colors"
+        >
+          <Coffee className="w-4 h-4" />
+          <span>BUY ME A COFFEE</span>
+        </a>
 
         <button
           type="button"
