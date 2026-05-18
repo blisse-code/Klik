@@ -29,25 +29,35 @@ export class ProviderError extends Error {
 
 // Map raw HTTP errors to ProviderError. Status families:
 //   401/403 → auth error, retryable (try next provider's key)
+//   404     → resource not found (often: model ID changed), retryable
 //   429     → quota, retryable
 //   5xx     → server, retryable
-//   4xx     → bad request, NOT retryable (would fail on all providers)
+//   other 4xx → bad request, NOT retryable
 function classifyHttpError(status: number, body: string): ProviderError {
-  const retryable = status === 401 || status === 403 || status === 429 || status >= 500;
+  const retryable =
+    status === 401 ||
+    status === 403 ||
+    status === 404 ||
+    status === 429 ||
+    status >= 500;
   return new ProviderError(`HTTP ${status}: ${body.slice(0, 300)}`, status, retryable);
 }
 
 // ----- Gemini --------------------------------------------------------------
 
+// Multiple candidate IDs in case Google renames. The Nano Banana family went
+// from `-preview` to GA, and `imagen-3` lives on the same SDK. Walk in order,
+// retry on 404/429/5xx (which means "this candidate didn't work, try next").
 const GEMINI_MODELS = [
-  'gemini-2.5-flash-image-preview', // free tier
-  'gemini-3-pro-image-preview',     // paid, higher quality
+  'gemini-2.5-flash-image',          // current GA name (Nano Banana)
+  'gemini-2.5-flash-image-preview',  // legacy preview alias
+  'gemini-3-pro-image-preview',      // paid, higher fidelity
+  'imagen-3.0-generate-002',          // Imagen 3 fallback
 ];
 
 async function transformGemini(input: TransformInput): Promise<TransformOutput> {
   const ai = new GoogleGenAI({ apiKey: input.apiKey });
   let lastErr: ProviderError | null = null;
-  // Walk Gemini's own model list inside the provider — free first, paid second.
   for (const model of GEMINI_MODELS) {
     try {
       const response = await ai.models.generateContent({
@@ -68,19 +78,64 @@ async function transformGemini(input: TransformInput): Promise<TransformOutput> 
           };
         }
       }
-      lastErr = new ProviderError('Gemini returned no image part', 502, true);
+      // Model responded successfully but didn't include an image part — keep
+      // trying other models since this one may not support image output.
+      lastErr = new ProviderError(`Gemini ${model}: no image part in response`, 502, true);
     } catch (err: any) {
       const msg = err?.message || String(err);
-      const m = msg.match(/(\d{3})/);
+      const m = msg.match(/\b(\d{3})\b/);
       const status = m ? Number(m[1]) : 500;
-      lastErr = new ProviderError(`Gemini ${model}: ${msg}`, status, status === 429 || status >= 500);
-      if (status !== 429 && status < 500) break;
+      // Retry on 404 (model gone/renamed), 429 (quota), 5xx (server). Stop
+      // on 401/403 because re-trying with the same key against a different
+      // model name won't help auth.
+      const retryWithinAdapter = status === 404 || status === 429 || status >= 500;
+      lastErr = new ProviderError(`Gemini ${model}: ${msg}`, status, true);
+      if (!retryWithinAdapter) break;
     }
   }
   throw lastErr ?? new ProviderError('Gemini failed', 500, true);
 }
 
-// ----- OpenAI gpt-image-1 --------------------------------------------------
+// ----- OpenAI --------------------------------------------------------------
+// gpt-image-1 is the current image-edit model. It requires *organization
+// identity verification* (gov-ID) before access is granted. Users with a
+// valid API key but no verification hit 401 "must be verified" — give them
+// a clear, actionable message instead of raw JSON.
+
+function rewriteOpenAIError(status: number, body: string): ProviderError {
+  // Try to surface the most useful message. OpenAI returns
+  // {"error":{"message":"...","code":"...","type":"..."}}
+  let inner = body;
+  try {
+    const j = JSON.parse(body);
+    inner = j?.error?.message ?? body;
+  } catch {
+    /* fall through */
+  }
+
+  const lower = inner.toLowerCase();
+  if (
+    status === 401 &&
+    (lower.includes('must be verified') ||
+      lower.includes('insufficient permissions') ||
+      lower.includes('organization must be verified') ||
+      lower.includes('not verified'))
+  ) {
+    return new ProviderError(
+      'OpenAI org not verified for gpt-image-1. Verify at platform.openai.com/settings/organization/general, then retry.',
+      status,
+      true
+    );
+  }
+  if (status === 401) {
+    return new ProviderError(
+      `OpenAI auth failed: ${inner.slice(0, 200)}`,
+      status,
+      true
+    );
+  }
+  return classifyHttpError(status, inner);
+}
 
 async function transformOpenAI(input: TransformInput): Promise<TransformOutput> {
   // /v1/images/edits accepts multipart with PNG. gpt-image-1 supports image input.
@@ -102,7 +157,7 @@ async function transformOpenAI(input: TransformInput): Promise<TransformOutput> 
   });
   if (!res.ok) {
     const text = await res.text();
-    throw classifyHttpError(res.status, text);
+    throw rewriteOpenAIError(res.status, text);
   }
   const json = (await res.json()) as { data?: Array<{ b64_json?: string }> };
   const b64 = json.data?.[0]?.b64_json;
